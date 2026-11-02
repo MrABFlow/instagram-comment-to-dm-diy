@@ -1,0 +1,8 @@
+# Secrets and local runtime data
+.env
+.env.*
+n8n_data/
+*.log
+credentials.json
+*access-token*
+*app-secret*
