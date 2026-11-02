@@ -8,7 +8,6 @@ A self-hosted n8n + Meta API starter for sending one private reply when a person
 
 1. Read [SETUP.md](SETUP.md) before importing. It covers Meta permissions, webhooks, n8n configuration, testing, and troubleshooting.
 2. Import [comment-to-dm-n8n-starter.json](comment-to-dm-n8n-starter.json) into **self-hosted n8n**. Keep it inactive until configured and tested.
-3. Review [SECURITY.md](SECURITY.md) before adding any credentials or enabling the workflow.
 
 ## What happens
 
