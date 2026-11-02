@@ -1,0 +1,50 @@
+{
+  "name": "Instagram comment AUTOMATE → private reply (starter)",
+  "nodes": [
+    {
+      "parameters": {"httpMethod": "GET", "path": "instagram-comment-dm", "responseMode": "responseNode", "options": {}},
+      "id": "5c3f477b-06a9-4f36-9c3d-0eb63132bc5d", "name": "Meta verification GET", "type": "n8n-nodes-base.webhook", "typeVersion": 2.1, "position": [-760, -140], "webhookId": "e9f7c328-0d13-4c97-9087-298a56fb5bd3"
+    },
+    {
+      "parameters": {"jsCode": "const VERIFY_TOKEN = process.env.META_VERIFY_TOKEN || 'REPLACE_WITH_RANDOM_VERIFY_TOKEN';\nconst q = $json.query || {};\nconst mode = q['hub.mode'] ?? q['hub_mode'];\nconst token = q['hub.verify_token'] ?? q['hub_verify_token'];\nconst challenge = q['hub.challenge'] ?? q['hub_challenge'];\nconst ok = mode === 'subscribe' && token === VERIFY_TOKEN && typeof challenge === 'string';\nreturn [{ json: { status: ok ? 200 : 403, challenge: ok ? challenge : 'Forbidden' } }];"},
+      "id": "8f906804-9cc5-4d14-9555-1f8127bac0fb", "name": "Check Meta verify token", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-520, -140]
+    },
+    {
+      "parameters": {"respondWith": "text", "responseBody": "={{ $json.challenge }}", "options": {"responseCode": "={{ $json.status }}", "responseHeaders": {"entries": [{"name": "Content-Type", "value": "text/plain; charset=utf-8"}]}}},
+      "id": "f05ab2f4-0e2c-48c2-a302-15acf323f902", "name": "Return challenge", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.4, "position": [-280, -140]
+    },
+    {
+      "parameters": {"httpMethod": "POST", "path": "instagram-comment-dm", "responseMode": "responseNode", "options": {"rawBody": true}},
+      "id": "9e99d28e-2a88-4641-8fcb-8ce564d30dfa", "name": "Meta comments POST", "type": "n8n-nodes-base.webhook", "typeVersion": 2.1, "position": [-760, 220], "webhookId": "8cebc57e-0dc5-4e2d-9976-00f546585591"
+    },
+    {
+      "parameters": {"jsCode": "const crypto = require('crypto');\nconst APP_SECRET = process.env.META_APP_SECRET || 'REPLACE_WITH_META_APP_SECRET';\nconst GUIDE_URL = 'https://github.com/MrABFlow/instagram-comment-to-dm-diy/blob/main/SETUP.md';\nconst API_VERSION = 'v26.0'; // Verify the currently supported version before production.\nconst headers = $json.headers || {};\nconst signature = headers['x-hub-signature-256'] || headers['X-Hub-Signature-256'] || '';\nconst rawValue = $json.rawBody;\nlet raw;\nif (typeof rawValue === 'string') raw = Buffer.from(rawValue, 'utf8');\nelse if (Buffer.isBuffer(rawValue)) raw = rawValue;\nelse if (rawValue && Array.isArray(rawValue.data)) raw = Buffer.from(rawValue.data);\nelse if (rawValue && typeof rawValue === 'object' && typeof rawValue.toString === 'function') raw = Buffer.from(rawValue.toString(), 'utf8');\nconst expected = raw && APP_SECRET !== 'REPLACE_WITH_META_APP_SECRET' ? 'sha256=' + crypto.createHmac('sha256', APP_SECRET).update(raw).digest('hex') : '';\nlet valid = false;\nif (expected && typeof signature === 'string' && signature.length === expected.length) valid = crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));\nif (!valid) return [{ json: { status: 403, process: false, message: 'Invalid webhook signature' } }];\nif (!GUIDE_URL.startsWith('https://') || GUIDE_URL.includes('REPLACE_WITH')) return [{ json: { status: 200, process: false, message: 'Set GUIDE_URL in this Code node before launch' } }];\nlet body = $json.body;\nif (typeof body === 'string') { try { body = JSON.parse(body); } catch { return [{ json: { status: 400, process: false, message: 'Invalid JSON' } }]; } }\nif (!body || !Array.isArray(body.entry)) return [{ json: { status: 200, process: false, message: 'No Instagram entries' } }];\nconst actions = [];\nfor (const entry of body.entry) {\n  const igUserId = entry.id;\n  for (const change of (entry.changes || [])) {\n    if (change.field !== 'comments') continue;\n    const c = change.value || {};\n    const text = String(c.text || '').trim();\n    if (text.toUpperCase() !== 'AUTOMATE' || !c.id || !igUserId) continue;\n    if (c.from && String(c.from.id) === String(igUserId)) continue;\n    actions.push({ json: { status: 200, process: true, commentId: String(c.id), apiUrl: `https://graph.instagram.com/${API_VERSION}/${encodeURIComponent(String(igUserId))}/messages`, apiPayload: { recipient: { comment_id: String(c.id) }, message: { text: `Here’s the setup: ${GUIDE_URL}` } } });\n  }\n}\nreturn actions.length ? actions : [{ json: { status: 200, process: false, message: 'No matching AUTOMATE comments' } }];"},
+      "id": "28e14666-84e6-48cb-9918-e19fe62af8bd", "name": "Verify, match keyword, build reply", "type": "n8n-nodes-base.code", "typeVersion": 2, "position": [-520, 220]
+    },
+    {
+      "parameters": {"respondWith": "text", "responseBody": "={{ $json.status === 200 ? 'EVENT_RECEIVED' : 'Forbidden' }}", "options": {"responseCode": "={{ $json.status }}", "responseHeaders": {"entries": [{"name": "Content-Type", "value": "text/plain; charset=utf-8"}]}}},
+      "id": "226ef4de-3b1f-4e12-b54e-26463fdac8ee", "name": "Acknowledge Meta webhook", "type": "n8n-nodes-base.respondToWebhook", "typeVersion": 1.4, "position": [-280, 220]
+    },
+    {
+      "parameters": {"conditions": {"options": {"caseSensitive": true, "typeValidation": "strict", "version": 2}, "conditions": [{"id": "e708f9a2-1b0e-4d40-8780-83d3d0da6a61", "leftValue": "={{ $json.process }}", "rightValue": true, "operator": {"type": "boolean", "operation": "true", "singleValue": true}}], "combinator": "and"}, "options": {}},
+      "id": "a99c4e4d-4df7-4651-8c7e-b6e8f94e0e0a", "name": "Only matched comments", "type": "n8n-nodes-base.if", "typeVersion": 2.2, "position": [-40, 220]
+    },
+    {
+      "parameters": {"method": "POST", "url": "={{ $json.apiUrl }}", "authentication": "genericCredentialType", "genericAuthType": "httpHeaderAuth", "sendBody": true, "specifyBody": "json", "jsonBody": "={{ $json.apiPayload }}", "options": {}},
+      "id": "27de8b4c-cb23-4d20-8f7f-680fb5cedec7", "name": "Send one private reply", "type": "n8n-nodes-base.httpRequest", "typeVersion": 4.2, "position": [220, 120]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Meta verification GET": {"main": [[{"node": "Check Meta verify token", "type": "main", "index": 0}]]},
+    "Check Meta verify token": {"main": [[{"node": "Return challenge", "type": "main", "index": 0}]]},
+    "Meta comments POST": {"main": [[{"node": "Verify, match keyword, build reply", "type": "main", "index": 0}]]},
+    "Verify, match keyword, build reply": {"main": [[{"node": "Acknowledge Meta webhook", "type": "main", "index": 0}]]},
+    "Acknowledge Meta webhook": {"main": [[{"node": "Only matched comments", "type": "main", "index": 0}]]},
+    "Only matched comments": {"main": [[{"node": "Send one private reply", "type": "main", "index": 0}], []]}
+  },
+  "active": false,
+  "settings": {"executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "none"},
+  "meta": {"templateCredsSetupCompleted": false},
+  "tags": []
+}
